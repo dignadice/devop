@@ -31,3 +31,99 @@ flow record CCNP8-CUSTOM-OUT
    ip flow monitor CCNP8-INBOUND-MONITOR INPUT
    ip flow monitor CCNP8-OUTBOUND-MONITOR OUTPUT
    END
+
+
+TASK2: 1 OF 5 LABS
+config t
+flow record CCNP8-CUSTOM-OUT
+ description Custom Flow Record for outbound traffic
+ match ipv4 destination address
+ match transport destination-port
+ collect counter bytes
+ collect counter packets
+ END
+ @@@CREATE A FLOW EXPORTER:
+ config t
+  flow exporter CCNP8-COLLECTOR-HOST
+  destination 192.168.104.1
+  export-protocol netflow-v9
+  transport UDP 9999
+  END
+  @@@
+  config t
+  flow monitor CCNP8-INBOUND-MONITOR
+   record netflow ipv4 original-input
+   cache timeout active 30
+   exporter CCNP8-COLLECTOR-HOST
+  flow monitor CCNP8-OUTBOUND-MONITOR
+   record netflow ipv4 CCNP8-CUSTOM-OUT
+   cache timeout active 30
+   exporter CCNP8-COLLECTOR-HOST
+   exit
+   
+  config t
+  Int g1 3
+   ip flow monitor CCNP8-INBOUND-MONITOR INPUT
+   ip flow monitor CCNP8-OUTBOUND-MONITOR OUTPUT
+   END
+   
+   LAB CONTROL PLANCE POLICING: monitor all data entering
+   and leaving the control plane: ALL 
+  Exam Task: limit the ping to 8000 packets/sec! cm-cm-sp  ================
+  config t
+  ip access-list extended ABUSEPING
+   permit icmp any any
+  class-map STOPPING
+   match access-group name ABUSEPING
+  no policy-map PINGSTOP
+  policy-map PINGSTOP
+   class STOPPING
+   police 8000 conform-action transmit exceed-action drop
+   exit
+   control-plane
+    service-policy input PINGSTOP
+  end
+  sh policy-map control-plane
+  
+  TASK3: limit,tetlnet, ssh and https
+    config t
+    ip access-list extended TELNET
+   permit tcp any any eq 23
+    ip access-list extended SSH
+   permit tcp any any eq 22
+    ip access-list extended HTTPS
+   permit tcp any any eq 443
+    ip access-list extended ICMP
+   permit icmp any any
+  Class-map match-all CMTELNET
+   match access-group name TELNET
+   exit
+     Class-map match-all CMSSH
+   match access-group name SSH
+   exit
+     Class-map match-all CMHTTPS
+   match access-group name HTTPS
+   exit
+     Class-map match-all CMICMP
+   match access-group name ICMP
+   exit
+  Policy-map PMCOPP
+  class CMTELNET 
+   police 10000 conform-actionrm-action drop exceed-action drop
+    class CMSSH
+   police 80000 conform-action transmit exceed-action transmit
+    class CMHTTPS
+   police 60000 conform-action transmit exceed-action transmit
+     class CMICMP
+   police rate 4 pps conform-action transmit exceed-action drop
+  class class-default
+  police 12000 conform-action transmit exceed-action transmit
+  exit
+  control-plane 
+   service-policy input PMCOPP
+   END
+   
+   Assignment:
+   1. install csr1000v 17 x 2: site ! and siteB:
+   2. make 3 loopbs each x eem, python+linux + Postman = 9
+   3. Ansible automate the 5 loopbacks sample.yml
